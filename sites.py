@@ -4,6 +4,8 @@ Used as a centralized way to send email over an SMTP server.
 import os
 import urllib2
 import shutil
+import model
+from difflib import ndiff
 
 from BeautifulSoup import BeautifulSoup
 
@@ -19,7 +21,7 @@ def processSitesInFile(sitesLines):
     for site in sitesLines:
         site = site.strip()
         
-	# Ignore lines starting with # as comments
+        # Ignore lines starting with # as comments
         if site.startswith("#"):
             continue
         
@@ -29,8 +31,8 @@ def processSitesInFile(sitesLines):
                 sites[parts[0].strip()] = parts[1].strip()
             else:
                 print "Unknown site format: {0}".format(site)
-        except exception as err:
-            print "Error: {0}".format(err)
+        except exception:
+            print "Error: {0}".format(exception)
             
     return sites
 
@@ -48,22 +50,12 @@ def checkSite(siteDict, site):
     diff = None
     url = siteDict[site]
     hash = url.__hash__()
+    print url
     content = urllib2.urlopen(url).read()
     prettyContent = BeautifulSoup(content).prettify()
-    
-    if not os.path.exists(site + ".old"):
-        file = open(site + ".old", "w")
-        file.write(prettyContent)
-        file.close()
-    else:
-        oldfile = site + ".old"
-        newfile = site + ".new"
-        
-        file = open(newfile, "w")
-        file.write(prettyContent)
-        file.close()
-        
-        diff = os.popen("diff -uw " + oldfile + " " + newfile).read()
-        shutil.move(newfile, oldfile)
-        
+    newlines = prettyContent.split("\n")
+    oldlines = model.getOld(site)
+    if not oldlines == None:
+        diff = "\n".join([line for line in ndiff(oldlines, newlines) if not line.startswith("  ") and not line.startswith("? ")])
+    model.put(site, prettyContent)
     return diff

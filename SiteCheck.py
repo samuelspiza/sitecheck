@@ -8,15 +8,14 @@ from time import strftime
 
 import sendmail
 import sites
+import model
 
 VERSION = "1.3"
 
 def checkSites():
     """ Start the site checking business. """
 
-    siteFile = open("sites.txt", "r")
-    sitesLines = siteFile.readlines()
-    siteDict = sites.processSitesInFile(sitesLines)
+    siteDict = model.getSites()
 
     sitesWithDiff = {}
     for site in siteDict:
@@ -40,26 +39,24 @@ def checkSites():
             text += "\n\n"
 
         subject = subject[:-2]
-	subject += " " + strftime("%d.%m.%Y")
+        subject += " " + strftime("%d.%m.%Y")
         text += "SiteCheck.py - " + VERSION
 
         print subject
         print text
 
-	# Send the mail to every address in mails.txt
-        mails = open("mails.txt", "r").readlines()
-        sendmail.connectToServer()
+        # Send the mail to every address in mails.txt
+        mails = model.getMails()
 
         for mail in mails:
-	    mail = mail.strip()
+            mail = mail.strip()
             if len(mail) > 0 and not mail.startswith("#"):
                 sendmail.sendmail(mail, subject, text)
-        sendmail.closeConnection()
 
 if __name__ == "__main__":
     try:
         sys.exit(checkSites())
-    except Exception as err:
-	print err # Stupid but gets the job done...
-	sys.exit(1)
+    except Exception:
+        print Exception # Stupid but gets the job done...
+        sys.exit(1)
 
