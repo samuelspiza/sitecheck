@@ -34,7 +34,7 @@ def sendmail(to, subject, text):
     server.quit() 
 
 def safe_unicode(textstring):
-    """ Returns a unicode representation of the given string. """
+    """ Return a unicode representation of the given string. """
     try:
         return unicode(textstring, "UTF-8")
     except TypeError:

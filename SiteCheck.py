@@ -10,7 +10,7 @@ import sendmail
 import sites
 import model
 
-VERSION = "1.3"
+VERSION = "1.4"
 
 def checkSites():
     """ Start the site checking business. """
