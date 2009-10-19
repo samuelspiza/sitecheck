@@ -1,8 +1,7 @@
 '''
 Configuration and methods for sending mails.
 '''
-import smtplib
-from email.mime.text import MIMEText
+
 from google.appengine.api import mail
 
 replyto = "reply@example.com"
@@ -23,7 +22,7 @@ def sendmail(to, subject, text):
     mail.send_mail(replyto, to, subject, text) 
 
 def safe_unicode(textstring):
-    """ Returns a unicode representation of the given string. """
+    """ Return a unicode representation of the given string. """
     try:
         return unicode(textstring, "UTF-8")
     except TypeError:
