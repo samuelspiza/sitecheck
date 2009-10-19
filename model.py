@@ -40,4 +40,3 @@ def put(site, content):
         s = old[-1]
     s.content = content
     db.put(s)
-
