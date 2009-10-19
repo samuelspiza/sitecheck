@@ -1,6 +1,11 @@
+'''
+Configuration, objects and functions for datastorage and watched websites.
+'''
+
 import os
 
 def getSites():
+    """ Return a dict containing url of watched pages and their identifier. """
     siteFile = open("sites.txt", "r")
     sitesLines = siteFile.readlines()
     return processSitesInFile(sitesLines)
@@ -33,9 +38,13 @@ def processSitesInFile(sitesLines):
     return sites
 
 def getMails():
+    """ Return a iterable of recipients. """
     return open("mails.txt", "r").readlines()
 
 def getOld(site):
+    """Return a list of lines of a watched site cached at last execution 
+	or 'None' if no cached version available.
+	"""
     if not os.path.exists(site + ".old"):
         return None
     else:
@@ -45,6 +54,8 @@ def getOld(site):
         return oldlines
 
 def put(site, content):
+    """Delete existing versions and save a file containig the new version of 
+	a file."""
     if os.path.exists(site + ".old"):
         os.remove(site + ".old")
     file = open(site + ".old", "w")
