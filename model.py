@@ -1,26 +1,32 @@
 import os
 import sites
+from google.appengine.ext import db
+
+class Site(db.Model):
+  name = db.StringProperty(required=True)
+  content = db.StringProperty(multiline=True)
 
 def getSites():
-    siteFile = open("sites.txt", "r")
-    sitesLines = siteFile.readlines()
-    return sites.processSitesInFile(sitesLines)
+    return dict([("example","http://www.example.com/")])
 
 def getMails():
-    return open("mails.txt", "r").readlines()
+    return ["to@example.com"]
 
 def getOld(site):
-    if not os.path.exists(site + ".old"):
+    old = [seite for seite in db.GqlQuery("SELECT * FROM Site") if seite.name == site]
+    print len(old)
+    if len(old) == 0:
+        print "blub"
         return None
     else:
-        file = open(site + ".old")
-        oldlines = [line.rstrip() for line in file]
-        file.close()
-        return oldlines
+        return old[-1].content.split("\n")
 
 def put(site, content):
-    if os.path.exists(site + ".old"):
-        os.remove(site + ".old")
-    file = open(site + ".old", "w")
-    file.write(content)
-    file.close()
+    old = [seite for seite in db.GqlQuery("SELECT * FROM Site") if seite.name == site]
+    if len(old) == 0:
+        s = Site(name=site)
+    else:
+        s = old[-1]
+    s.content = content
+    db.put(s)
+

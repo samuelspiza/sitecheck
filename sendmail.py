@@ -3,9 +3,8 @@ Configuration and methods for sending mails.
 '''
 import smtplib
 from email.mime.text import MIMEText
+from google.appengine.api import mail
 
-username = "username"
-password = "password"
 replyto = "reply@example.com"
 
 def sendmail(to, subject, text):
@@ -16,22 +15,12 @@ def sendmail(to, subject, text):
     subject -- the subject line to use
     text    -- the text to send
     """
-    server = smtplib.SMTP('smtp.gmail.com:587')  
-    server.starttls()  
-    server.login(username,password)  
 
     to = safe_unicode(to)
     subject = safe_unicode(subject)
     text = safe_unicode(text)
 
-    msg = MIMEText(text.encode("UTF-8"), "plain", "UTF-8")
-    msg["Subject"] = subject
-    msg["To"] = to
-    msg["Reply-to"] = replyto
-
-    server.sendmail(msg["Reply-to"], msg["To"], msg.as_string())
-    
-    server.quit() 
+    mail.send_mail(replyto, to, subject, text) 
 
 def safe_unicode(textstring):
     """ Returns a unicode representation of the given string. """
