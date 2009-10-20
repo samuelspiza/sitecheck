@@ -5,9 +5,11 @@ See README for more information.
 '''
 import sys
 from time import strftime
+import urllib2
+from difflib import ndiff
+from BeautifulSoup import BeautifulSoup
 
 import sendmail
-import sites
 import model
 
 VERSION = "1.4"
@@ -15,43 +17,66 @@ VERSION = "1.4"
 def checkSites():
     """ Start the site checking business. """
 
-    siteDict = model.getSites()
+    sites = model.getSites()
 
     sitesWithDiff = {}
-    for site in siteDict:
-        diff = sites.checkSite(siteDict, site)
-        if diff is not None:
-            if len(diff.strip()) > 0:
-                sitesWithDiff[site] = diff.strip()
+    for site in sites:
+        diff = checkSiteDiff(site)
+        if diff is not None and 0 < len(diff.strip()):
+            sitesWithDiff = (site, diff.strip())
 
     print "Found",len(sitesWithDiff), "Sites with diffs"
 
-    # construct the email notice
-    if len(sitesWithDiff) > 0:
-        subject = "Observer Report - "
-        text = "Observed Changes:\n"
-        for site in sitesWithDiff:
-            subject += site + ", "
-
-            text += "~"*10 + " " + site + " - " + siteDict[site]
-            text += " " + "~"*10 + "\n"
-            text += sitesWithDiff[site]
-            text += "\n\n"
-
-        subject = subject[:-2]
-        subject += " " + strftime("%d.%m.%Y")
-        text += "SiteCheck.py - " + VERSION
+    if 0 < len(sitesWithDiff):
+        subject, body = constructEmail(sitesWithDiff)
 
         print subject
-        print text
+        print body
 
         # Send the mail to every address in mails.txt
-        mails = model.getMails()
+        recipients = [m for m in model.getMails() if 0 < len(m) and not m.startswith("#")]
+        sendmail.sendmail(recipients, subject, body)
 
-        for mail in mails:
-            mail = mail.strip()
-            if len(mail) > 0 and not mail.startswith("#"):
-                sendmail.sendmail(mail, subject, text)
+def checkSiteDiff(site):
+    """
+    Download the site and diff it with the old version when it was downloaded
+    before.
+
+    site -- the site object
+
+    return: result of the diff
+    """
+
+    rawcontent = urllib2.urlopen(site.url).read()
+    newcontent = BeautifulSoup(rawcontent).prettify()
+    newlines = newcontent.split("\n")
+    
+    diff = None
+    if not site.content == None:
+        oldlines = site.content.split("\n")
+        diff = "\n".join([line for line in ndiff(oldlines, newlines) if not line.startswith("  ") and not line.startswith("? ")])
+
+	if site.content == None or 0 < len(diff.strip()):
+        site.content = newcontent
+		model.put(site)
+	
+    return diff
+
+def constructEmail(sitesWithDiff):
+        """ Construct the subject and body for the Email. """
+        subject = "Observer Report - "
+        subject += ", ".join([site[0].name for site in sitesWithDiff])
+        subject += " " + strftime("%d.%m.%Y")
+        
+        body = "Observed Changes:\n"
+        for site in sitesWithDiff:
+            body += "~"*10 + " " + site[0].name + " - " + site[0].url
+            body += " " + "~"*10 + "\n"
+            body += site[1]
+            body += "\n\n"
+        body += "SiteCheck.py - " + VERSION
+        
+        return subject, body
 
 if __name__ == "__main__":
     try:
