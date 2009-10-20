@@ -17,13 +17,16 @@ VERSION = "1.4"
 def checkSites():
     """ Start the site checking business. """
 
+    print 'Content-Type: text/plain'
+    print ''
+    
     sites = model.getSites()
-
-    sitesWithDiff = {}
+    
+    sitesWithDiff = []
     for site in sites:
         diff = checkSiteDiff(site)
         if diff is not None and 0 < len(diff.strip()):
-            sitesWithDiff = (site, diff.strip())
+            sitesWithDiff.append((site, diff.strip()))
 
     print "Found",len(sitesWithDiff), "Sites with diffs"
 
@@ -79,9 +82,5 @@ def constructEmail(sitesWithDiff):
         return subject, body
 
 if __name__ == "__main__":
-    try:
-        sys.exit(checkSites())
-    except Exception:
-        print Exception # Stupid but gets the job done...
-        sys.exit(1)
+    checkSites()
 

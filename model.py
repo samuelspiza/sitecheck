@@ -8,7 +8,7 @@ class Site(db.Model):
     """ The GAE DB data object to save a cached version of a website. """
     name = db.StringProperty(required=True)
     url = db.StringProperty(required=True)
-    content = db.StringProperty(multiline=True)
+    content = db.TextProperty()
 
 def getSites():
     """ Return a dict containing url of watched pages and their identifier. """
