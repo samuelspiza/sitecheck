@@ -6,20 +6,21 @@ from google.appengine.api import mail
 
 replyto = "reply@example.com"
 
-def sendmail(to, subject, text):
+def sendmail(recipients, subject, body):
     """
     Send an email.
 
     to      -- the email address to send the mail to
     subject -- the subject line to use
-    text    -- the text to send
+    body    -- the text to send
     """
 
-    to = safe_unicode(to)
     subject = safe_unicode(subject)
-    text = safe_unicode(text)
+    body = safe_unicode(body)
+    for to in recipients:
+        to = safe_unicode(to)
 
-    mail.send_mail(replyto, to, subject, text) 
+        mail.send_mail(replyto, to, subject, body) 
 
 def safe_unicode(textstring):
     """ Return a unicode representation of the given string. """
