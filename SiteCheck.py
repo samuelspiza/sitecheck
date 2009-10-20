@@ -34,7 +34,7 @@ def checkSites():
         print body
 
         # Send the mail to every address in mails.txt
-        recipients = [m for m in model.getMails() if 0 < len(m) and not m.startswith("#")]
+        recipients = model.getMails()
         sendmail.sendmail(recipients, subject, body)
 
 def checkSiteDiff(site):
@@ -52,14 +52,14 @@ def checkSiteDiff(site):
     newlines = newcontent.split("\n")
     
     diff = None
-    if not site.content == None:
+    if not site.content == None and 0 < len(site.content.strip()):
         oldlines = site.content.split("\n")
         diff = "\n".join([line for line in ndiff(oldlines, newlines) if not line.startswith("  ") and not line.startswith("? ")])
 
-	if site.content == None or 0 < len(diff.strip()):
+    if site.content == None or 0 == len(site.content.strip()) or 0 < len(diff.strip()):
         site.content = newcontent
-		model.put(site)
-	
+        model.put(site)
+    
     return diff
 
 def constructEmail(sitesWithDiff):
