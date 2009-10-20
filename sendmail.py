@@ -1,37 +1,26 @@
 '''
 Configuration and methods for sending mails.
 '''
-import smtplib
-from email.mime.text import MIMEText
 
-username = "username"
-password = "password"
+from google.appengine.api import mail
+
 replyto = "reply@example.com"
 
-def sendmail(to, subject, text):
+def sendmail(recipients, subject, body):
     """
     Send an email.
 
     to      -- the email address to send the mail to
     subject -- the subject line to use
-    text    -- the text to send
+    body    -- the text to send
     """
-    server = smtplib.SMTP('smtp.gmail.com:587')  
-    server.starttls()  
-    server.login(username,password)  
 
-    to = safe_unicode(to)
     subject = safe_unicode(subject)
-    text = safe_unicode(text)
+    body = safe_unicode(body)
+    for to in recipients:
+        to = safe_unicode(to)
 
-    msg = MIMEText(text.encode("UTF-8"), "plain", "UTF-8")
-    msg["Subject"] = subject
-    msg["To"] = to
-    msg["Reply-to"] = replyto
-
-    server.sendmail(msg["Reply-to"], msg["To"], msg.as_string())
-    
-    server.quit() 
+        mail.send_mail(replyto, to, subject, body) 
 
 def safe_unicode(textstring):
     """ Return a unicode representation of the given string. """

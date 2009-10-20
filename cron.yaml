@@ -1,0 +1,4 @@
+cron:
+- description: sitecheck cron job
+  url: /cron
+  schedule: every 10 minutes
