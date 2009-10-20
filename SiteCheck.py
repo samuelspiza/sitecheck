@@ -8,6 +8,7 @@ from time import strftime
 import urllib2
 from difflib import ndiff
 from BeautifulSoup import BeautifulSoup
+from google.appengine.ext import db
 
 import sendmail
 import model
@@ -51,7 +52,7 @@ def checkSiteDiff(site):
     """
 
     rawcontent = urllib2.urlopen(site.url).read()
-    newcontent = BeautifulSoup(rawcontent).prettify()
+    newcontent = sendmail.safe_unicode(BeautifulSoup(rawcontent).prettify())
     newlines = newcontent.split("\n")
     
     diff = None
@@ -60,7 +61,7 @@ def checkSiteDiff(site):
         diff = "\n".join([line for line in ndiff(oldlines, newlines) if not line.startswith("  ") and not line.startswith("? ")])
 
     if site.content == None or 0 == len(site.content.strip()) or 0 < len(diff.strip()):
-        site.content = newcontent
+        site.content = db.Text(newcontent)
         model.put(site)
     
     return diff
