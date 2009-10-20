@@ -12,13 +12,7 @@ class Site(db.Model):
 
 def getSites():
     """ Return a dict containing url of watched pages and their identifier. """
-    sites = []
-    sites.append(("example", "http://www.example.com/"))
-    sites = dict(sites)
-    objs = db.GqlQuery(db.GqlQuery("SELECT * FROM Employee WHERE name IN :1",
-                                   sites))
-    missing = [Site(name=it[0],url=it[1]) for it in sites.items() if it[0] not in [o.name for o in objs]]
-    return objs + missing
+    return db.GqlQuery("SELECT * FROM Site")
 
 def getMails():
     """ Return a list of recipients. """
