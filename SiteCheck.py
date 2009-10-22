@@ -3,63 +3,118 @@ Checks a list of urls for changes.
 
 See README for more information.
 '''
-import sys
+import urllib, urllib2, cookielib
 from time import strftime
+from difflib import ndiff
+from BeautifulSoup import BeautifulSoup
 
-import sendmail
-import sites
+import sendmail, model
 
-VERSION = "1.3"
+VERSION = "1.4"
+
+siteslogedin = []
+logins = model.getLogins()
+tobesaved = []
 
 def checkSites():
     """ Start the site checking business. """
 
-    siteFile = open("sites.txt", "r")
-    sitesLines = siteFile.readlines()
-    siteDict = sites.processSitesInFile(sitesLines)
-
+    jar = cookielib.CookieJar()
+    handler = urllib2.HTTPCookieProcessor(jar)
+    opener = urllib2.build_opener(handler)
+    urllib2.install_opener(opener)
+    
+    sites = model.getSites()
+    
     sitesWithDiff = {}
-    for site in siteDict:
-        diff = sites.checkSite(siteDict, site)
-        if diff is not None:
-            if len(diff.strip()) > 0:
-                sitesWithDiff[site] = diff.strip()
+    for site in sites:
+        diff = checkSiteDiff(site)
+        if diff is not None and 0 < len(diff.strip()):
+            if site.recipient not in sitesWithDiff:
+                sitesWithDiff[site.recipient] = []
+            sitesWithDiff[site.recipient].append((site, diff.strip()))
 
-    print "Found",len(sitesWithDiff), "Sites with diffs"
+    print "Found " + str(sum([len(x) for x in sitesWithDiff.values()])) + " Sites with diffs"
+    
+    mails = []
+    
+    recipients = model.getRecipients()
+    for recipient in recipients:
+        if recipient.name in sitesWithDiff:
+            subject, body = constructEmail(sitesWithDiff[recipient.name])
+    
+            print subject
+            print body
+    
+            mails.append((recipient.mail, subject, body))
+    
+    if 0 < len(mails):
+        sendmail.sendmail(mails)
+    
+    for site in tobesaved:
+        model.put(site)
 
-    # construct the email notice
-    if len(sitesWithDiff) > 0:
-        subject = "Observer Report - "
-        text = "Observed Changes:\n"
-        for site in sitesWithDiff:
-            subject += site + ", "
+def checkSiteDiff(site):
+    """ Download the site and diff it with the old version (if available). """
+    if site.login != None:
+        login(site.login)
+    rawcontent = getResponse(site.url, None).read()
+    newcontent = sendmail.safe_unicode(BeautifulSoup(rawcontent).prettify())
+    newcontent = newcontent.replace(u'\u2212', "")
+    newlines = newcontent.split("\n")
+    
+    diff = None
+    if not site.content == None and 0 < len(site.content.strip()):
+        oldlines = site.content.split("\n")
+        diff = "\n".join([line for line in ndiff(oldlines, newlines) if not line.startswith("  ") and not line.startswith("? ")])
 
-            text += "~"*10 + " " + site + " - " + siteDict[site]
-            text += " " + "~"*10 + "\n"
-            text += sitesWithDiff[site]
-            text += "\n\n"
+    if site.content == None or 0 == len(site.content.strip()) or 0 < len(diff.strip()):
+        site.content = newcontent
+        tobesaved.append(site)
+    
+    return diff
 
-        subject = subject[:-2]
-	subject += " " + strftime("%d.%m.%Y")
-        text += "SiteCheck.py - " + VERSION
+def getResponse(url, postData = None):
+    header = { 'User-Agent' : 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.0)',
+            'Accept-Language': 'de',
+            'Accept-Encoding': 'utf-8'                                   
+        } 
+    if(postData is not None):
+        postData = urllib.urlencode(postData)
+    req = urllib2.Request(url, postData, header)
+    try:
+        return urllib2.urlopen(req)
+    except urllib2.HTTPError, e:
+        print 'Error Code:', e.code
+        return None
 
-        print subject
-        print text
+def login(name):
+    """ Performs a log in if not allready loged in. """
+    if name not in siteslogedin:
+        for login in logins:
+            if login.name == name:
+                for url in login.urls:
+                    url = [x.strip() for x in url.split("_&_")]
+                    postData = dict([x.split("=") for x in url[1:]])
+                    login = getResponse(url[0], postData).read()
+                siteslogedin.append(name)
 
-	# Send the mail to every address in mails.txt
-        mails = open("mails.txt", "r").readlines()
-        sendmail.connectToServer()
-
-        for mail in mails:
-	    mail = mail.strip()
-            if len(mail) > 0 and not mail.startswith("#"):
-                sendmail.sendmail(mail, subject, text)
-        sendmail.closeConnection()
+def constructEmail(sitesWithDiff):
+    """ Construct the subject and body for the Email. """
+    subject = "Observer Report - "
+    subject += ", ".join([site[0].name for site in sitesWithDiff])
+    subject += " " + strftime("%d.%m.%Y")
+    
+    body = "Observed Changes:\n"
+    for site in sitesWithDiff:
+        body += "~"*10 + " " + site[0].name + " - " + site[0].url
+        body += " " + "~"*10 + "\n"
+        body += site[1]
+        body += "\n\n"
+    body += "SiteCheck.py - " + VERSION
+    
+    return subject, body
 
 if __name__ == "__main__":
-    try:
-        sys.exit(checkSites())
-    except Exception as err:
-	print err # Stupid but gets the job done...
-	sys.exit(1)
+    checkSites()
 
