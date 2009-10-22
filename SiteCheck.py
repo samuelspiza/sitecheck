@@ -94,7 +94,6 @@ def login(name):
         for login in logins:
             if login.name == name:
                 for url in login.urls:
-                    url = [x.strip() for x in url.split("_&_")]
                     postData = dict([x.split("=") for x in url[1:]])
                     login = getResponse(url[0], postData).read()
                 siteslogedin.append(name)
