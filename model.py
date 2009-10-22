@@ -17,7 +17,7 @@ def getSites():
 def getMails():
     """ Return a list of recipients. """
     mails = []
-    mails.append("to@example.com")
+    mails.append("%recipient%")
     return mails
 
 def put(site):

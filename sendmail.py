@@ -4,7 +4,7 @@ Configuration and methods for sending mails.
 
 from google.appengine.api import mail
 
-replyto = "reply@example.com"
+replyto = "Sysengbot <noreply@%appid%.appspotmail.com>"
 
 def sendmail(recipients, subject, body):
     """
@@ -26,5 +26,5 @@ def safe_unicode(textstring):
     """ Return a unicode representation of the given string. """
     try:
         return unicode(textstring, "UTF-8")
-    except TypeError:
+    except UnicodeDecodeError:
         return textstring #was already unicode
