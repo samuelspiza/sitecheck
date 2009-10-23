@@ -25,29 +25,16 @@ def checkSites():
     urllib2.install_opener(opener)
     
     sites = model.getSites()
+    recipients = dict([(r.name, r) for r in model.getRecipients()])
     
-    sitesWithDiff = {}
     for site in sites:
         diff = checkSiteDiff(site)
         if diff is not None and 0 < len(diff.strip()):
-            if site.recipient not in sitesWithDiff:
-                sitesWithDiff[site.recipient] = []
-            sitesWithDiff[site.recipient].append((site, diff.strip()))
+            recipients[site.recipient].sitesWithDiff.append((site, diff.strip()))
 
-    print "Found " + str(sum([len(x) for x in sitesWithDiff.values()])) + " Sites with diffs"
+    print "Found " + str(sum([len(r.sitesWithDiff) for r in recipients.values()])) + " Sites with diffs"
     
-    mails = []
-    
-    recipients = model.getRecipients()
-    for recipient in recipients:
-        if recipient.name in sitesWithDiff:
-            subject, body = constructEmail(sitesWithDiff[recipient.name])
-    
-            print subject
-            print body
-    
-            mails.append((recipient.mail, subject, body))
-    
+    mails = [constructEmail(r) for r in recipients.values() if 0 < len(r.sitesWithDiff)]
     if 0 < len(mails):
         sendmail.sendmail(mails)
     
@@ -60,14 +47,13 @@ def checkSiteDiff(site):
         login(site.login)
     rawcontent = getResponse(site.url, None).read()
     newcontent = sendmail.safe_unicode(BeautifulSoup(rawcontent).prettify())
-    newcontent = newcontent.replace(u'\u2212', "")
     newlines = newcontent.split("\n")
     
     diff = None
     if not site.content == None and 0 < len(site.content.strip()):
         oldlines = site.content.split("\n")
         diff = "\n".join([line for line in ndiff(oldlines, newlines) if not line.startswith("  ") and not line.startswith("? ")])
-
+    
     if site.content == None or 0 == len(site.content.strip()) or 0 < len(diff.strip()):
         site.content = newcontent
         tobesaved.append(site)
@@ -98,21 +84,21 @@ def login(name):
                     login = getResponse(url[0], postData).read()
                 siteslogedin.append(name)
 
-def constructEmail(sitesWithDiff):
+def constructEmail(recipient):
     """ Construct the subject and body for the Email. """
     subject = "Observer Report - "
-    subject += ", ".join([site[0].name for site in sitesWithDiff])
+    subject += ", ".join([site[0].name for site in recipient.sitesWithDiff])
     subject += " " + strftime("%d.%m.%Y")
     
     body = "Observed Changes:\n"
-    for site in sitesWithDiff:
+    for site in recipient.sitesWithDiff:
         body += "~"*10 + " " + site[0].name + " - " + site[0].url
         body += " " + "~"*10 + "\n"
         body += site[1]
         body += "\n\n"
     body += "SiteCheck.py - " + VERSION
     
-    return subject, body
+    return (recipient.mail, subject, body)
 
 if __name__ == "__main__":
     checkSites()

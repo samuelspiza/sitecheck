@@ -7,8 +7,7 @@ import settings
 
 def getSites():
     """
-    Reads the 'sites.conf' and available old versions, then returns a list of 
-    'Site' Objects. 
+    Reads  available old versions, then returns a list of 'Site' Objects. 
     """
     sites = settings.sites
     for site in sites:
@@ -25,15 +24,15 @@ def readContent(site):
         file.close()
 
 def getLogins():
-    """ Reads 'logins.conf' and returns a list of 'Login' Objects. """
+    """ Returns a list of 'Login' Objects. """
     return settings.logins
 
 def getRecipients():
-    """ Reads 'recipients.conf' and returns a list of 'Recipient' Objects. """
+    """ Returns a list of 'Recipient' Objects. """
     return settings.recipients
 
 def put(site):
-    """ Save the new content of a side in a file. """
+    """ Save the new content of a site in a file. """
     file = open(site.name + ".old", "w")
     file.write(site.content)
     file.close()
