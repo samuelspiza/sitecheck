@@ -3,11 +3,11 @@ Classes
 '''
 
 class Site():
-    def __init__(self, name, url, login, recipient):
+    def __init__(self, name, url, login, recipients):
         self.name = name
         self.url = url
         self.login = login
-        self.recipient = recipient
+        self.recipients = recipients
 
 class Login():
     def __init__(self, name, urls):

@@ -30,7 +30,8 @@ def checkSites():
     for site in sites:
         diff = checkSiteDiff(site)
         if diff is not None and 0 < len(diff.strip()):
-            recipients[site.recipient].sitesWithDiff.append((site, diff.strip()))
+            for recipient in site.recipients:
+                recipients[recipient].sitesWithDiff.append((site, diff.strip()))
 
     print "Found " + str(sum([len(r.sitesWithDiff) for r in recipients.values()])) + " Sites with diffs"
     
@@ -47,6 +48,7 @@ def checkSiteDiff(site):
         login(site.login)
     rawcontent = getResponse(site.url, None).read()
     newcontent = sendmail.safe_unicode(BeautifulSoup(rawcontent).prettify())
+    newcontent = newcontent.encode('ascii', 'ignore')
     newlines = newcontent.split("\n")
     
     diff = None
