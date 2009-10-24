@@ -7,8 +7,9 @@ from email.mime.text import MIMEText
 
 def sendmail(mails, maillogindata):
     """ Send the emails. """
-    server = smtplib.SMTP('smtp.gmail.com:587')
-    server.starttls()
+    server = smtplib.SMTP(maillogindata["server"])
+    if "tls" in maillogindata and maillogindata["tls"]:
+        server.starttls()
     server.login(maillogindata["user"],maillogindata["pass"])
     for mail in mails:
         recipient = safe_unicode(mail[0])
