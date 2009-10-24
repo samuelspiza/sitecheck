@@ -31,6 +31,10 @@ def getRecipients():
     """ Returns a list of 'Recipient' Objects. """
     return settings.recipients
 
+def getMaillogindata():
+    """ Returns a list of 'Login' Objects. """
+    return settings.maillogindata
+
 def put(site):
     """ Save the new content of a site in a file. """
     file = open(site.name + ".old", "w")

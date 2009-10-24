@@ -37,7 +37,7 @@ def checkSites():
     
     mails = [constructEmail(r) for r in recipients.values() if 0 < len(r.sitesWithDiff)]
     if 0 < len(mails):
-        sendmail.sendmail(mails)
+        sendmail.sendmail(mails, model.getMaillogindata())
     
     for site in tobesaved:
         model.put(site)

@@ -4,16 +4,12 @@ Configuration and methods for sending mails.
 
 import smtplib
 from email.mime.text import MIMEText
- 
-username = "user"
-password = "pass"
-replyto = "user@googlemail.com"
- 
-def sendmail(mails):
+
+def sendmail(mails, maillogindata):
     """ Send the emails. """
     server = smtplib.SMTP('smtp.gmail.com:587')
     server.starttls()
-    server.login(username,password)
+    server.login(maillogindata["user"],maillogindata["pass"])
     for mail in mails:
         recipient = safe_unicode(mail[0])
         subject = safe_unicode(mail[1])
@@ -21,7 +17,7 @@ def sendmail(mails):
         msg = MIMEText(text.encode("UTF-8"), "plain", "UTF-8")
         msg["Subject"] = subject
         msg["To"] = recipient
-        msg["Reply-to"] = replyto
+        msg["Reply-to"] = maillogindata["replyto"]
      
         server.sendmail(msg["Reply-to"], msg["To"], msg.as_string())
     
