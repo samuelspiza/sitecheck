@@ -3,11 +3,12 @@ Classes
 '''
 
 class Site():
-    def __init__(self, name, url, login, recipients):
+    def __init__(self, name, url, to, login=None, regex=None):
         self.name = name
         self.url = url
+        self.to = to
         self.login = login
-        self.recipients = recipients
+        self.regex = regex
 
 class Login():
     def __init__(self, name, urls):
