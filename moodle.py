@@ -1,24 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import urllib, urllib2, re, cookielib, os, hashlib, sendmail
+import re, os, hashlib
 from BeautifulSoup import BeautifulSoup
 from threading import Thread
-from time import strftime
-
-
-def getResponse(url, postData = None):
-    header = { 'User-Agent' : 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.0',
-                'Accept-Language': 'de',
-                'Accept-Encoding': 'utf-8'                                   
-            } 
-    if(postData is not None):
-        postData = urllib.urlencode(postData)
-    req = urllib2.Request(url, postData, header)
-    try:
-        return urllib2.urlopen(req)
-    except urllib2.HTTPError, e:
-        print 'Error Code:', e.code
-        return None
 
 class Course(Thread):
     def __init__ (self, url, CourseName):
@@ -30,7 +14,7 @@ class Course(Thread):
         self.newFiles = []
         if not os.path.exists(self.CourseName):
             os.mkdir(self.CourseName)
-        soup = BeautifulSoup(getResponse(self.url).read())
+        soup = BeautifulSoup(sitecheck.getResponse(self.url).read())
         links = soup.findAll(attrs={'href' : re.compile("resource/view.php")})
         for link in links:
             if not(link.span is None):
@@ -40,7 +24,7 @@ class Course(Thread):
     
     def download(self, url, folder, CourseName):
         newFiles, savedFile = [], []
-        response = getResponse(url)
+        response = sitecheck.getResponse(url)
         if(response is not None):
             # Direkter Download
             if(response.info().get("Content-Type").find('audio/x-pn-realaudio') == 0):
@@ -92,7 +76,7 @@ class Course(Thread):
                     os.mkdir(self.CourseName + newPath)   
         fullFileName = self.CourseName + newPath
 
-        response = getResponse(url)
+        response = sitecheck.getResponse(url)
         if(os.path.isfile(fullFileName)):
             with open(fullFileName, 'r') as f:
                 read_data = f.read()
@@ -130,18 +114,46 @@ class Course(Thread):
         else:
             return []
         
-def finish(newFiles):
-    """
-    Moved from Monitor class. Sends an email containing all new files.
-    """
-    if(len(newFiles) > 0):
+class Moodle():
+    def __init__(self, name, url, to, login):
+        self.name = name
+        self.url = url
+        self.to = to
+        self.login = login
+    
+    def run()
+        sitecheck.login(self.login)
+	
+        # Use the Service
+        html = getResponse(self.url).read()
+        soup = BeautifulSoup(html)
+        # Nicht allzu sauber mit den regexp
+        links = soup.findAll(attrs={'href' : re.compile("course/view.php"), 'title' : re.compile("Hier klicken"), })
+        
+        courses = []
+        
+        self.newFiles = {}
+        
+        for link in links:
+            CourseName = link.string.replace("&amp;", "&")
+            CourseName = re.sub(u"[^a-zA-Z0-9_() ]", "", CourseName).strip()
+            #print u"Kurs: " + CourseName
+            current = Course(link['href'], CourseName)
+            courses.append(current)
+            current.start()
+    
+        for course in courses:
+            course.join()
+            new_files_of_course = course.newFiles
+            if new_files_of_course:
+                self.newFiles[course.CourseName] = course.newFiles
+        
+        self.mail = None
+        subject = ", ".join(self.newFiles.keys())
         text = ""
-        subject = "Moodle Report - "
-        for course in newFiles:
-	    text += "~"*5 + course + "~"*5 + "\n"
-            if(len(newFiles[course]) > 0):
-                subject += course + " "
-            for file in newFiles[course]:
+        for course in self.newFiles.items():
+            text += "~"*5 + course[0] + "~"*5 + "\n"
+            for file in course[1]:
                 if file[2]:
                     suffix = "Changed"
                 else:
@@ -149,68 +161,11 @@ def finish(newFiles):
                 text += file[0] + " - " + suffix + "\n"
                 text += "Link: " + file[1] + "\n\n"
             text += "\n\n"
-        text += "MoodleCheck.py - 1.1"
-        subject += strftime("%d.%m.%Y")
-        # Send the mail to every address in mails.txt
-        mails = open("mails.txt", "r").readlines()
-        sendmail.connectToServer()
-        for mail in mails:
-            mail = mail.strip()
-            if len(mail) > 0 and not mail.startswith("#"):
-                sendmail.sendmail(mail, subject, text)
-        sendmail.closeConnection()
+        if len(0 < text.strip())
+            self.mail = subject + "\n\n" + text
 
-#
-#
-# Benutzerdaten
-password = "" # PASSWORD
-user = ""
-# CAS Daten
-casUrl = 'https://cas.uni-duisburg-essen.de/cas/login'
-casService = "http://moodle.uni-duisburg-essen.de/login/index.php?authCAS=CAS"
+def getToken():
+    data = sitecheck.getResponse(casUrl).read()
+    rawstr = '<input type="hidden" name="lt" value="([A-Za-z0-9_\-]*)" />'
+    return "lt=" + re.search(rawstr, data, re.MULTILINE).group(1)
 
-# Setup
-jar = cookielib.CookieJar()
-handler = urllib2.HTTPCookieProcessor(jar)
-opener = urllib2.build_opener(handler)
-urllib2.install_opener(opener)
-    
-# Get token
-data = getResponse(casUrl).read()
-rawstr = '<input type="hidden" name="lt" value="([A-Za-z0-9_\-]*)" />'
-token = re.search(rawstr, data, re.MULTILINE).group(1)
-
-# Login
-postData = {'username': user, 'password': password, 'lt': token, '_eventId': 'submit'}
-dummy = getResponse(casUrl + '?service=' + casService, postData)
-dummy = None
-
-# Use the Service
-url = 'http://moodle.uni-duisburg-essen.de/index.php'
-# verueckt, erst muss ich einen kurs aufrufen um in der hauptseite eingeloggt zu sein
-dummy = getResponse("http://moodle.uni-duisburg-essen.de/course/view.php?id=1574")
-
-html = getResponse(url).read()
-soup = BeautifulSoup(html)
-# Nicht allzu sauber mit den regexp
-links = soup.findAll(attrs={'href' : re.compile("course/view.php"), 'title' : re.compile("Hier klicken"), })
-
-courses = []
-
-newFiles = {}
-
-for link in links:
-    CourseName = link.string.replace("&amp;", "&")
-    CourseName = re.sub(u"[^a-zA-Z0-9_() ]", "", CourseName).strip()
-    #print u"Kurs: " + CourseName
-    current = Course(link['href'], CourseName)
-    courses.append(current)
-    current.start()
-    
-for course in courses:
-    course.join()
-    new_files_of_course = course.newFiles
-    if new_files_of_course:
-        newFiles[course.CourseName] = course.newFiles
-    
-finish(newFiles)
