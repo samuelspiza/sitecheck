@@ -26,5 +26,5 @@ def safe_unicode(textstring):
     """ Return a unicode representation of the given string. """
     try:
         return unicode(textstring, "UTF-8")
-    except UnicodeDecodeError:
+    except TypeError:
         return textstring #was already unicode
