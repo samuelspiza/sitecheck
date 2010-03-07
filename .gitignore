@@ -1,9 +1,4 @@
 *.pyc
-*.old
-mails.txt
-sites.txt
-.project
-.pydev
-.pydevproject
-index.yaml
+*.txt
 *~
+/fileupdater/

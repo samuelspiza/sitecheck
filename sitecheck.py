@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
-import sys, urllib2, smtplib, difflib, ConfigParser
+import sys, os, urllib2, smtplib, shutil, re, difflib, ConfigParser
 from email.mime.text import MIMEText
 from time import strftime
 from BeautifulSoup import BeautifulSoup
+from fileupdater import absUrl
 
 VERSION = "1.4"
 
@@ -11,14 +12,17 @@ CONFFILES = []
 CONFFILES.append(os.path.expanduser("~/.sitecheck.conf"))
 CONFFILES.append(os.path.expanduser("~/.sitecheck-cred.conf"))
 CONFFILES.append("sitecheck.conf")
-CONFFILES.append("sitecheck-addresses.conf")
-CONFFILES.append("sitecheck-mail.conf")
 CONFFILES.append("sitecheck-logins.conf")
+CONFFILES.append("sitecheck-mail.conf")
 CONFFILES.append("sitecheck-sites.conf")
+CONFFILES.append("sitecheck-to.conf")
 
 def main():
+    config = ConfigParser.ConfigParser()
+    config.read(CONFFILES)
+
     try:
-        sites = getSites()
+        sites = getSites(config)
     except:
         return 1
 
@@ -30,7 +34,7 @@ def main():
 
     sitesWithDiff = [s for s in sites if s.hasDiff()]
     try:
-        sendMail(sitesWithDiff)
+        mail(sitesWithDiff)
     except:
         return 1
 
@@ -38,6 +42,27 @@ def main():
         site.move()
 
     return 0
+
+def getSites(config):
+    sites = []
+    standardto = dict(config.items("to"))
+    for section in config.sections():
+        if section[:4] == "site":
+            name = section[6:-1]
+            if config.has_option(section, "to"):
+                recipients = config.get(section, "to")
+                to = [standardto[r] for r in recipients]
+            else:
+                to = standardto.values()
+            for option in config.options(section):
+                if option[:5] == "page.":
+                    url = config.get(section, option)
+                    sites.append(Site(name, option, url, to))
+    return sites
+
+def mail(sites):
+    for site in sites:
+        print site.getDiff()
 
 def sendmail(to, subject, text):
     """
@@ -49,7 +74,7 @@ def sendmail(to, subject, text):
     """
     server = smtplib.SMTP('smtp.gmail.com:587')
     server.starttls()
-    server.login(username,password)
+    server.login("username","password")
 
     to = safe_unicode(to)
     subject = safe_unicode(subject)
@@ -58,7 +83,7 @@ def sendmail(to, subject, text):
     msg = MIMEText(text.encode("UTF-8"), "plain", "UTF-8")
     msg["Subject"] = subject
     msg["To"] = to
-    msg["Reply-to"] = replyto
+    msg["Reply-to"] = "replyto"
 
     server.sendmail(msg["Reply-to"], msg["To"], msg.as_string())
 
@@ -74,7 +99,7 @@ def safe_unicode(textstring):
 def constructEmail(sitesWithDiff):
     """ Construct the subject and body for the Email. """
     sitenames = ", ".join([site[0].name for site in sitesWithDiff])
-    subject = "Observer Report - %s %s" % (sitenames, strftime("%d.%m.%Y"))
+    subject = "Observer Report - %s %s" % (sitenames, strftime("%Y-%m-%d"))
 
     body = "Observed Changes:\n"
     for site in sitesWithDiff:
@@ -85,28 +110,58 @@ def constructEmail(sitesWithDiff):
     return subject, body
 
 class Site():
-    def checkSiteDiff(self):
-        """
-        Download the site and diff it with the old version when it was
-        downloaded before.
-        """
+    def __init__(self, name, option, url, to):
+        self.name = name
+        self.oldfile = "%s-%s.old.txt" % (name, option[5:])
+        self.newfile = "%s-%s.new.txt" % (name, option[5:])
+        self.url = url
+        self.to = to
+        self.newlines = None
+        self.diff = None
 
-        rawcontent = urllib2.urlopen(site.url).read()
-        newcontent = BeautifulSoup(rawcontent).prettify()
-        newlines = newcontent.split("\n")
+    def writeNew(self):
+        newlines = self.getNewLines()
+        file = open(self.newfile, "w")
+        file.write("\n".join(newlines))
+        file.close()
 
-        diff = None
-        if not site.content == None:
-            oldlines = site.content.split("\n")
-            diff = "\n".join([l for l in difflib.ndiff(oldlines, newlines)
-                              if not line.startswith("  ") and \
-                                 not line.startswith("? ")])
+    def getNewLines(self):
+        if self.newlines is None:
+            rawcontent = urllib2.urlopen(self.url).read()
+            newcontent = BeautifulSoup(rawcontent).prettify()
+            self.newlines = newcontent.split("\n")
+        return self.newlines
 
-        if site.content == None or 0 < len(diff.strip()):
-            site.content = newcontent
-            model.put(site)
+    def hasDiff(self):
+        diff = self.getDiff()
+        return diff is not None and 0 < len(diff)
 
-        return diff
+    def getDiff(self):
+        if self.diff is None:
+            oldlines = self.getOldLines()
+            if oldlines is not None:
+                diff = difflib.ndiff(oldlines, self.getNewLines())
+                self.diff = "\n".join([l for l in diff
+                                       if not l.startswith("  ") and \
+                                          not l.startswith("? ")])
+            regexp = r'(?<=href=")[a-z0-9/]*\.pdf(?=")'
+            matches = re.findall(regexp, self.diff)
+            replaces = [(g, " %s " % absUrl(self.url, g)) for g in matches]
+            for rep in replaces:
+                self.diff = self.diff.replace(rep[0], rep[1])
+        return self.diff
 
-if __name__ = "__main__":
+    def getOldLines(self):
+        if os.path.exists(self.oldfile):
+            file = open(self.oldfile, "r")
+            content = file.read()
+            file.close()
+            return content.split("\n")
+        else:
+            return None
+
+    def move(self):
+        shutil.move(self.newfile, self.oldfile)
+
+if __name__ == "__main__":
     sys.exit(main())
