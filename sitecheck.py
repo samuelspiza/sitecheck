@@ -17,6 +17,8 @@ CONFFILES.append("sitecheck-mail.conf")
 CONFFILES.append("sitecheck-sites.conf")
 CONFFILES.append("sitecheck-to.conf")
 
+server = None
+
 def main():
     config = ConfigParser.ConfigParser()
     config.read(CONFFILES)
@@ -34,7 +36,7 @@ def main():
 
     sitesWithDiff = [s for s in sites if s.hasDiff()]
     try:
-        mail(sitesWithDiff)
+        mail(config, sitesWithDiff)
     except:
         return 1
 
@@ -50,21 +52,34 @@ def getSites(config):
         if section[:4] == "site":
             name = section[6:-1]
             if config.has_option(section, "to"):
-                recipients = config.get(section, "to")
-                to = [standardto[r] for r in recipients]
+                to = [s.trim() for s in config.get(section, "to").split(",")]
             else:
-                to = standardto.values()
+                to = standardto.keys()
             for option in config.options(section):
                 if option[:5] == "page.":
                     url = config.get(section, option)
                     sites.append(Site(name, option, url, to))
     return sites
 
-def mail(sites):
-    for site in sites:
-        print site.getDiff()
+def mail(config, sites):
+    global server
+    server = smtplib.SMTP(config.get("mail", "server"))
+    if config.has_option("mail", "tls") and config.getboolean("mail", "tls"):
+        server.starttls()
+    username = config.get("mail", "username")
+    password = config.get("mail", "password")
+    server.login(username, password)
+    
+    replyto = config.get("mail", "replyto")
+    to = config.items("to")
+    for addressee in to:
+        asites = [s for s in sites if addressee[0] in s.to]
+        subject, body = constructEmail(asites)
+        sendmail(addressee[1], replyto, subject, body)
 
-def sendmail(to, subject, text):
+    server.quit()
+
+def sendmail(to, replyto, subject, body):
     """
     Send an email.
 
@@ -72,22 +87,19 @@ def sendmail(to, subject, text):
     subject -- the subject line to use
     text    -- the text to send
     """
-    server = smtplib.SMTP('smtp.gmail.com:587')
-    server.starttls()
-    server.login("username","password")
 
     to = safe_unicode(to)
     subject = safe_unicode(subject)
-    text = safe_unicode(text)
+    body = safe_unicode(body)
 
-    msg = MIMEText(text.encode("UTF-8"), "plain", "UTF-8")
+    print body
+    
+    msg = MIMEText(body.encode("UTF-8"), "plain", "UTF-8")
     msg["Subject"] = subject
     msg["To"] = to
-    msg["Reply-to"] = "replyto"
+    msg["Reply-to"] = replyto
 
     server.sendmail(msg["Reply-to"], msg["To"], msg.as_string())
-
-    server.quit()
 
 def safe_unicode(textstring):
     """ Return a unicode representation of the given string. """
@@ -96,15 +108,15 @@ def safe_unicode(textstring):
     except TypeError:
         return textstring #was already unicode
 
-def constructEmail(sitesWithDiff):
+def constructEmail(sites):
     """ Construct the subject and body for the Email. """
-    sitenames = ", ".join([site[0].name for site in sitesWithDiff])
+    sitenames = ", ".join([site.name for site in sites])
     subject = "Observer Report - %s %s" % (sitenames, strftime("%Y-%m-%d"))
 
     body = "Observed Changes:\n"
-    for site in sitesWithDiff:
-        title = "%s %s - %s %s" % ("~"*10, site[0].name, "~"*10, site[0].url)
-        body += "%s\n%s\n\n" % (title, site[1])
+    for site in sites:
+        title = "%s %s - %s %s" % ("~"*10, site.name, site.url, "~"*10)
+        body += "%s\n%s\n\n" % (title, site.getDiff())
     body += "SiteCheck.py - " + VERSION
 
     return subject, body
@@ -144,11 +156,14 @@ class Site():
                 self.diff = "\n".join([l for l in diff
                                        if not l.startswith("  ") and \
                                           not l.startswith("? ")])
-            regexp = r'(?<=href=")[a-z0-9/]*\.pdf(?=")'
-            matches = re.findall(regexp, self.diff)
-            replaces = [(g, " %s " % absUrl(self.url, g)) for g in matches]
+            # make pdfs clickable
+            reg = r'(?<=href=")[a-z0-9/\.]*\.pdf(?=")'
+            rep = '(?<=href=")%s(?=")'
+            m = re.findall(reg, self.diff)
+            replaces = [(rep % g, " %s " % absUrl(self.url, g)) for g in m]
             for rep in replaces:
-                self.diff = self.diff.replace(rep[0], rep[1])
+                self.diff = re.sub(rep[0], rep[1], self.diff)
+
         return self.diff
 
     def getOldLines(self):
