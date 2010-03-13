@@ -1,27 +1,20 @@
 #!/usr/bin/env python
 
+__version__ = "1.4"
+
 import sys, os, urllib2, smtplib, shutil, re, difflib, ConfigParser
 from email.mime.text import MIMEText
 from time import strftime
 from BeautifulSoup import BeautifulSoup
 from fileupdater import absUrl
 
-VERSION = "1.4"
-
-CONFFILES = []
-CONFFILES.append(os.path.expanduser("~/.sitecheck.conf"))
-CONFFILES.append(os.path.expanduser("~/.sitecheck-cred.conf"))
-CONFFILES.append("sitecheck.conf")
-CONFFILES.append("sitecheck-logins.conf")
-CONFFILES.append("sitecheck-mail.conf")
-CONFFILES.append("sitecheck-sites.conf")
-CONFFILES.append("sitecheck-to.conf")
-
-server = None
+CONF_FILES = [os.path.expanduser("~/.sitecheck.conf"),"sitecheck-logins.conf",
+              os.path.expanduser("~/.sitecheck-cred.conf"),"sitecheck.conf",
+              "sitecheck-to.conf","sitecheck-mail.conf","sitecheck-sites.conf"]
 
 def main():
     config = ConfigParser.ConfigParser()
-    config.read(CONFFILES)
+    config.read(CONF_FILES)
 
     try:
         sites = getSites(config)
@@ -62,13 +55,13 @@ def getSites(config):
     return sites
 
 def mail(config, sites):
-    global server
-    server = smtplib.SMTP(config.get("mail", "server"))
+    global MAIL_SERVER
+    MAIL_SERVER = smtplib.SMTP(config.get("mail", "server"))
     if config.has_option("mail", "tls") and config.getboolean("mail", "tls"):
-        server.starttls()
+        MAIL_SERVER.starttls()
     username = config.get("mail", "username")
     password = config.get("mail", "password")
-    server.login(username, password)
+    MAIL_SERVER.login(username, password)
     
     replyto = config.get("mail", "replyto")
     to = config.items("to")
@@ -77,17 +70,10 @@ def mail(config, sites):
         subject, body = constructEmail(asites)
         sendmail(addressee[1], replyto, subject, body)
 
-    server.quit()
+    MAIL_SERVER.quit()
 
 def sendmail(to, replyto, subject, body):
-    """
-    Send an email.
-
-    to      -- the email address to send the mail to
-    subject -- the subject line to use
-    text    -- the text to send
-    """
-
+    """Send an email."""
     to = safe_unicode(to)
     subject = safe_unicode(subject)
     body = safe_unicode(body)
@@ -99,17 +85,17 @@ def sendmail(to, replyto, subject, body):
     msg["To"] = to
     msg["Reply-to"] = replyto
 
-    server.sendmail(msg["Reply-to"], msg["To"], msg.as_string())
+    MAIL_SERVER.sendmail(msg["Reply-to"], msg["To"], msg.as_string())
 
 def safe_unicode(textstring):
-    """ Return a unicode representation of the given string. """
+    """Return a unicode representation of the given string."""
     try:
         return unicode(textstring, "UTF-8")
     except TypeError:
         return textstring #was already unicode
 
 def constructEmail(sites):
-    """ Construct the subject and body for the Email. """
+    """Construct the subject and body for the Email."""
     sitenames = ", ".join([site.name for site in sites])
     subject = "Observer Report - %s %s" % (sitenames, strftime("%Y-%m-%d"))
 
@@ -117,7 +103,7 @@ def constructEmail(sites):
     for site in sites:
         title = "%s %s - %s %s" % ("~"*10, site.name, site.url, "~"*10)
         body += "%s\n%s\n\n" % (title, site.getDiff())
-    body += "SiteCheck.py - " + VERSION
+    body += "SiteCheck.py - " + __version__
 
     return subject, body
 
