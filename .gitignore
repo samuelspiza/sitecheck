@@ -2,3 +2,8 @@
 *.txt
 *~
 /fileupdater/
+/sitecheck.conf
+/sitecheck-mail.conf
+/sitecheck-sites.conf
+/sitecheck-to.conf
+/sitecheck-logins.conf

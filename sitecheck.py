@@ -8,33 +8,25 @@ from time import strftime
 from BeautifulSoup import BeautifulSoup
 from fileupdater import absUrl
 
-CONF_FILES = [os.path.expanduser("~/.sitecheck.conf"),"sitecheck-logins.conf",
-              os.path.expanduser("~/.sitecheck-cred.conf"),"sitecheck.conf",
-              "sitecheck-to.conf","sitecheck-mail.conf","sitecheck-sites.conf"]
+CONFIG_FILES = [os.path.expanduser("~/.sitecheck.conf"),
+                os.path.expanduser("~/.sitecheck-cred.conf"),
+                "sitecheck.conf","sitecheck-mail.conf","sitecheck-sites.conf",
+                "sitecheck-to.conf","sitecheck-logins.conf"]
 
 def main():
     config = ConfigParser.ConfigParser()
-    config.read(CONF_FILES)
+    config.read(CONFIG_FILES)
 
     try:
         sites = getSites(config)
-    except:
-        return 1
-
-    try:
         for site in sites:
             site.writeNew()
-    except:
-        return 1
-
-    sitesWithDiff = [s for s in sites if s.hasDiff()]
-    try:
+        sitesWithDiff = [s for s in sites if s.hasDiff()]
         mail(config, sitesWithDiff)
+        for site in sites:
+            site.move()
     except:
         return 1
-
-    for site in sites:
-        site.move()
 
     return 0
 
@@ -62,7 +54,7 @@ def mail(config, sites):
     username = config.get("mail", "username")
     password = config.get("mail", "password")
     MAIL_SERVER.login(username, password)
-    
+
     replyto = config.get("mail", "replyto")
     to = config.items("to")
     for addressee in to:
@@ -79,7 +71,7 @@ def sendmail(to, replyto, subject, body):
     body = safe_unicode(body)
 
     print body
-    
+
     msg = MIMEText(body.encode("UTF-8"), "plain", "UTF-8")
     msg["Subject"] = subject
     msg["To"] = to
